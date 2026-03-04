@@ -2,6 +2,12 @@
 
 这个仓库现在只用于：从小说网站抓取章节文本（不再包含 OCR 流程）。
 
+## 目录导航
+
+目录较多时，优先看这份说明文档：
+
+- `docs/DIRECTORY_LAYOUT.md`
+
 ## 当前脚本
 
 - `scripts/scrape_wodebooks.py`
