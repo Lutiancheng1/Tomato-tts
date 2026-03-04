@@ -1,75 +1,105 @@
-# 项目目录说明（当前约定）
+# 项目目录说明（清晰版）
 
 更新时间：2026-03-05
 
-这份文档用于解决“目录太多、看不清该用哪个”的问题。  
-重点结论：后续以 **Azure TTS** 作为主流程，优先看 `azure_tts_*` 相关目录与清单。
+这份文档用于回答三件事：
 
-## 1) 主流程目录（核心）
+1. 每个目录是干什么的
+2. 哪些应该提交到 Git
+3. 换设备后如何继续跑
 
-根目录：
+---
 
-- `scripts/azure_tts_from_chunks.py`：Azure 批量合成脚本（主脚本）
-- `wodebooks_output/book_94814546_full_20260304/`：本书全量数据目录
+## 1) 当前主流程（你现在在用的）
 
-本书目录下的关键内容：
+主流程是：`文本 -> tts_chunks -> Azure TTS -> 进度追踪`
 
-- `chapters/`：抓取后的原始分章文本（来源真值）
-- `tts_chapters/`：TTS 清洗后的按章文本
-- `tts_chunks/`：按分块切好的文本（API 实际输入）
-- `azure_tts_audio/`：Azure 正式合成产物（按章节子目录）
-- `azure_tts_manifest.csv`：Azure 产物清单（章节级记录）
-- `azure_tts_progress.csv`：Azure 进度清单（`DONE/PARTIAL/TODO`）
+关键目录（以本书为例）：
 
-## 2) Azure 相关文件怎么理解
+- `wodebooks_output/book_94814546_full_20260304/chapters/`
+  - 抓取后的原始分章文本
+- `wodebooks_output/book_94814546_full_20260304/tts_chapters/`
+  - 清洗后的按章文本（适合直接喂 TTS）
+- `wodebooks_output/book_94814546_full_20260304/tts_chunks/`
+  - 切块文本（`part_*.txt`）
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_audio/`
+  - Azure 正式音频产物（分章目录，含 `part_*.wav` 和 `chapter.wav`）
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_manifest.csv`
+  - Azure 章节生成清单
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_progress.csv`
+  - Azure 全书进度（`DONE/PARTIAL/TODO`）
 
-- `azure_tts_audio/<章节>/part_*.wav`：该章节的分块音频
-- `azure_tts_audio/<章节>/chapter.wav`：该章节合并后音频
-- `azure_tts_manifest.csv`：记录“已生成章节”的元数据
-- `azure_tts_progress.csv`：按全书统计每章状态，迁移设备后优先看这个
+主脚本：
 
-建议顺序：
+- `scripts/azure_tts_from_chunks.py`
 
-1. 先看 `azure_tts_progress.csv`，确认哪些 `TODO`。
-2. 再按章节范围运行 Azure 脚本（`--start/--end`）。
-3. 跑完后再次查看 `azure_tts_progress.csv` 是否转为 `DONE`。
+---
 
-## 3) 现有测试目录（非主流程）
+## 2) 目录分类（是否提交 Git）
 
-以下目录主要用于历史测试或对比，不是当前主流程必需：
+### A. 应该提交（跨设备继续生产必需）
 
-- `azure_tts_audio_test/`
-- `azure_tts_manifest_test.csv`
+- `scripts/azure_tts_from_chunks.py`
+- `README.md`
+- `docs/DIRECTORY_LAYOUT.md`
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**`
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_manifest.csv`
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_progress.csv`
+
+### B. 可选提交（测试用途）
+
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**`
+- `wodebooks_output/book_94814546_full_20260304/azure_tts_manifest_test.csv`
+
+### C. 不应提交（本地环境 / 缓存 / 密钥）
+
+- `.venv_google310/`
+- `.venv_melo310/`
+- `.venv_gsv310/`
+- `.cache/`
+- `huggingface/`
+- `third_party/`
+- `google-credentials/`
+- `*.sa-key.json`
+- `secrets/google/`
+
+### D. 本地模型目录（你问的重点）
+
+- `voice_assets/piper/voices/`
+  - 这是本地下载的 Piper 模型目录
+  - 不是只给 Windows，用于本地运行 Piper，Linux/macOS 也可用
+  - 体积大、可再下载，应该保持 **不提交 Git**
+
+- `voice_assets/piper/voices.json`
+  - 这是索引清单（小文件），可以提交
+
+---
+
+## 3) 现在项目里那些“看起来很乱”的目录怎么理解
+
+以下多为历史方案或测试产物，不是你当前 Azure 主流程必须依赖：
+
 - `google_tts_audio/`
 - `google_tts_audio_test_client/`
 - `google_tts_audio_test_rest/`
 - `melo_wav*`
 - `gptsovits_wav*`
+- `gptsovits_ref_6s.wav`
 
-它们可以保留，但日常生产时可忽略。
+建议：
 
-## 4) 版本管理约定（已调整）
+1. 日常只关注 `azure_tts_*`、`chapters/`、`tts_chapters/`、`tts_chunks/`。
+2. 历史测试目录可以先保留，不影响主流程。
+3. 后续若要瘦身，再按“测试目录清理清单”统一清理。
 
-为便于换设备继续生产，以下 Azure 产物/进度现在纳入 git：
+---
 
-- `wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**`
-- `wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**`
-- `wodebooks_output/book_94814546_full_20260304/azure_tts_manifest.csv`
-- `wodebooks_output/book_94814546_full_20260304/azure_tts_manifest_test.csv`
-- `wodebooks_output/book_94814546_full_20260304/azure_tts_progress.csv`
-
-敏感信息仍不入库：
-
-- `google-credentials/`
-- `*.sa-key.json`
-- 任何 API key / secret 文件
-
-## 5) 换设备后的最短操作
+## 4) 换设备后最短续跑步骤
 
 1. `git pull`
 2. 配置 Azure 环境变量：`AZURE_TTS_KEY`、`AZURE_TTS_REGION`
-3. 打开 `azure_tts_progress.csv` 查看 `TODO` 章节
-4. 执行脚本续跑：
+3. 打开 `azure_tts_progress.csv` 看 `TODO` 章节
+4. 按范围续跑：
 
 ```powershell
 python scripts/azure_tts_from_chunks.py `
@@ -82,3 +112,10 @@ python scripts/azure_tts_from_chunks.py `
   --voice-name zh-CN-XiaochenNeural `
   --output-format riff-24khz-16bit-mono-pcm
 ```
+
+---
+
+## 5) 当前结论（直接回答你的问题）
+
+- `voice_assets/piper/voices/`：是本地模型目录，不仅是 Windows，可跨平台本地用。
+- 这个目录应该继续保持不提交 Git（当前规则也是这样）。
