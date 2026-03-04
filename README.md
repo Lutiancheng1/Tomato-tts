@@ -22,6 +22,11 @@
   - 支持 `client`（ADC/服务账号）和 `rest`（API Key）两种调用方式
   - 可输出 `LINEAR16/MP3/OGG_OPUS`，其中 `LINEAR16` 会自动拼接 `chapter.wav`
   - 输出音频清单 `google_tts_manifest.csv`
+- `scripts/azure_tts_from_chunks.py`
+  - 读取 `tts_chunks` 并调用 Azure Speech Text-to-Speech（REST）批量合成
+  - 默认可直接用 `zh-CN-XiaochenNeural`（晓辰，年轻女声）
+  - 支持 `wav/mp3/ogg` 输出，`wav` 模式会自动拼接每章 `chapter.wav`
+  - 输出音频清单 `azure_tts_manifest.csv`
 - `scripts/google_tts_voice_previews.py`
   - 批量拉取中文相关音色（`cmn-/yue-/zh-`）并生成试听 MP3
   - 输出 `manifest.csv`，便于按音色名筛选
@@ -58,6 +63,63 @@ python scripts/prepare_tts_chapters.py \
 - `tts_chapters/*.txt`：按章清洗后的文本（适合一章一章喂给 TTS）
 - `tts_chunks/<章节>/part_*.txt`：按字数切块后的文本（适合接口长度受限时）
 - `tts_manifest.csv`：每章句子数、分块数、字数统计
+
+## 换电脑重建分块（重点）
+
+`tts_chunks` 默认不作为长期版本文件维护。  
+换到新电脑（例如 macOS）后，建议按下面流程重建并继续批量生产：
+
+### 1) 先拉代码
+
+```bash
+git pull
+```
+
+### 2) 重建 `tts_chunks`
+
+```bash
+python3 scripts/prepare_tts_chapters.py \
+  --book-dir wodebooks_output/book_94814546_full_20260304 \
+  --chunk-max-chars 280 \
+  --sentence-max-chars 60
+```
+
+重建后会生成：
+
+- `wodebooks_output/book_94814546_full_20260304/tts_chunks/`
+- `wodebooks_output/book_94814546_full_20260304/tts_manifest.csv`
+
+### 3) 用 Google TTS 批量生产
+
+使用 ADC（推荐）：
+
+```bash
+python3 scripts/google_tts_from_chunks.py \
+  --book-dir wodebooks_output/book_94814546_full_20260304 \
+  --output-root wodebooks_output/book_94814546_full_20260304/google_tts_audio \
+  --manifest-file wodebooks_output/book_94814546_full_20260304/google_tts_manifest.csv \
+  --backend client \
+  --language-code cmn-CN \
+  --voice-name cmn-CN-Chirp3-HD-Achernar \
+  --audio-encoding LINEAR16
+```
+
+或用 API Key：
+
+```bash
+export GOOGLE_TTS_API_KEY="<YOUR_API_KEY>"
+python3 scripts/google_tts_from_chunks.py \
+  --book-dir wodebooks_output/book_94814546_full_20260304 \
+  --backend rest \
+  --language-code cmn-CN \
+  --voice-name cmn-CN-Chirp3-HD-Achernar \
+  --audio-encoding MP3
+```
+
+注意：
+
+- `google-credentials/google_tts_api_key.txt` 不会提交到 git，需要你在新电脑自行配置。
+- 若先做小样测试，可加 `--start 1 --end 1 --max-parts 2`。
 
 ## 本地 MeloTTS 合成（Windows + NVIDIA）
 
@@ -254,7 +316,7 @@ py -3.10 -m venv .venv_google310
   --manifest-file wodebooks_output/book_94814546_full_20260304/google_tts_manifest_test.csv `
   --backend client `
   --language-code cmn-CN `
-  --voice-name cmn-CN-Wavenet-A `
+  --voice-name cmn-CN-Chirp3-HD-Achernar `
   --audio-encoding LINEAR16 `
   --speaking-rate 1.0 --pitch 0 --volume-gain-db 0 `
   --delay 0.05
@@ -269,7 +331,7 @@ py -3.10 -m venv .venv_google310
   --manifest-file wodebooks_output/book_94814546_full_20260304/google_tts_manifest.csv `
   --backend client `
   --language-code cmn-CN `
-  --voice-name cmn-CN-Wavenet-A `
+  --voice-name cmn-CN-Chirp3-HD-Achernar `
   --audio-encoding LINEAR16 `
   --speaking-rate 1.0 --pitch 0 --volume-gain-db 0
 ```
@@ -288,7 +350,7 @@ $env:GOOGLE_TTS_API_KEY="<YOUR_API_KEY>"
 $req = @'
 {
   "input": {"text": "你好，这是 Google Cloud TTS 的测试。"},
-  "voice": {"languageCode": "cmn-CN", "name": "cmn-CN-Wavenet-A"},
+  "voice": {"languageCode": "cmn-CN", "name": "cmn-CN-Chirp3-HD-Achernar"},
   "audioConfig": {"audioEncoding": "MP3"}
 }
 '@
@@ -308,6 +370,8 @@ $resp = Invoke-RestMethod `
 
 ```powershell
 .\.venv_google310\Scripts\python scripts/google_tts_voice_previews.py `
+  --voice-family chirp3-hd `
+  --clean-output `
   --output-dir wodebooks_output/google_tts_voice_previews_20260304_fixed
 ```
 
@@ -315,6 +379,127 @@ $resp = Invoke-RestMethod `
 
 - `wodebooks_output/google_tts_voice_previews_20260304_fixed/*.mp3`
 - `wodebooks_output/google_tts_voice_previews_20260304_fixed/manifest.csv`
+- 默认建议生成 `Chirp 3: HD` 音色试听
+
+### 7) 常见问题（Google TTS）
+
+- 问：支持把“一整章文本”一次性传给 Google TTS 吗？
+  - 当前脚本默认不这么做，设计为读取 `tts_chunks/<章节>/part_*.txt` 分块合成，再按章节汇总。
+  - 原因是云端 TTS 单次请求有文本长度限制，整章直传容易超限或失败。
+- 问：默认用哪种音色？
+  - `--voice-name` 为空时，脚本会优先选择 `Chirp 3: HD`（当前已内置 `cmn-CN` 和 `yue-HK` 默认值）。
+- 问：支持批量吗？
+  - 支持。可通过 `--start/--end` 按章节范围批量，也可不传 `--end` 直接全量跑。
+  - 可用 `--max-parts` 做小样本测试，再去掉限制跑全量。
+- 问：如何控制最终每章一个文件？
+  - `--audio-encoding LINEAR16` 时会自动合并为每章 `chapter.wav`。
+  - `MP3/OGG_OPUS` 模式默认只生成分块音频文件（不做无损拼接）。
+
+## Azure Speech TTS（API）
+
+已新增脚本：`scripts/azure_tts_from_chunks.py`
+
+- 输入：`tts_chunks/<章节>/part_*.txt`
+- 输出：`azure_tts_audio/<章节>/part_*.wav|mp3|ogg`（RIFF PCM 会自动生成 `chapter.wav`）
+- 清单：`azure_tts_manifest.csv`
+- 进度：`azure_tts_progress.csv`（`DONE/PARTIAL/TODO`，用于看哪些章节已生成）
+
+### 1) 先准备 Key + Region
+
+在 Azure 门户创建（或使用已有）Speech 资源后，拿到：
+
+- `KEY`（密钥）
+- `REGION`（区域，例如 `eastasia`）
+
+在 PowerShell 设置环境变量：
+
+```powershell
+$env:AZURE_TTS_KEY="<YOUR_AZURE_SPEECH_KEY>"
+$env:AZURE_TTS_REGION="<YOUR_AZURE_REGION>"
+```
+
+### 2) 列出可用音色（先确认晓辰）
+
+```powershell
+python scripts/azure_tts_from_chunks.py `
+  --locale zh-CN `
+  --list-voices
+```
+
+常见目标音色：
+
+- `zh-CN-XiaochenNeural`（晓辰，年轻女声）
+
+### 3) 小范围试跑（第 1 章前 2 段）
+
+```powershell
+python scripts/azure_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --start 1 --end 1 --max-parts 2 `
+  --output-root wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test `
+  --manifest-file wodebooks_output/book_94814546_full_20260304/azure_tts_manifest_test.csv `
+  --locale zh-CN `
+  --voice-name zh-CN-XiaochenNeural `
+  --output-format riff-24khz-16bit-mono-pcm `
+  --speaking-rate 1.0 --pitch 0 `
+  --delay 0.05
+```
+
+### 4) 全量跑全部章节
+
+```powershell
+python scripts/azure_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --output-root wodebooks_output/book_94814546_full_20260304/azure_tts_audio `
+  --manifest-file wodebooks_output/book_94814546_full_20260304/azure_tts_manifest.csv `
+  --locale zh-CN `
+  --voice-name zh-CN-XiaochenNeural `
+  --output-format riff-24khz-16bit-mono-pcm `
+  --speaking-rate 1.0 --pitch 0
+```
+
+### 4.1) 只跑第一章（完整章节）
+
+```powershell
+python scripts/azure_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --start 1 --end 1 `
+  --output-root wodebooks_output/book_94814546_full_20260304/azure_tts_audio `
+  --manifest-file wodebooks_output/book_94814546_full_20260304/azure_tts_manifest.csv `
+  --progress-file wodebooks_output/book_94814546_full_20260304/azure_tts_progress.csv `
+  --locale zh-CN `
+  --voice-name zh-CN-XiaochenNeural `
+  --output-format riff-24khz-16bit-mono-pcm
+```
+
+说明：
+
+- `azure_tts_manifest.csv` 会保留历史已生成章节记录（后续按章节补跑不会丢失旧记录）。
+- `azure_tts_progress.csv` 会基于 `tts_chunks` 全量章节更新状态，方便看“哪些已完成，哪些待生成”。
+
+### 4.2) 目录与版本管理建议
+
+- 推荐固定使用：`wodebooks_output/<book>/azure_tts_audio/` 作为 Azure 产物目录。
+- 该目录属于可再生输出，不建议提交到 git（仓库里默认也会忽略大部分 `wodebooks_output` 产物）。
+- 需要跨电脑继续生产时：只要拉代码 + 重建 `tts_chunks`，再跑 Azure 脚本即可续跑。
+
+### 5) 可选参数（调风格）
+
+- `--style cheerful`：仅在音色支持该风格时生效
+- `--style-degree 1.2`：风格强度
+- `--role YoungAdultFemale`：角色（同样依赖音色支持）
+
+示例：
+
+```powershell
+python scripts/azure_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --start 1 --end 1 --max-parts 2 `
+  --locale zh-CN `
+  --voice-name zh-CN-XiaochenNeural `
+  --style cheerful --style-degree 1.2 `
+  --output-format audio-24khz-160kbitrate-mono-mp3
+```
 
 ## 下载免费音色到本地（Piper）
 
@@ -391,8 +576,16 @@ wodebooks_output/
         part_002.wav
         chapter.wav
       ...
+    azure_tts_audio/
+      001_章节名/
+        part_001.wav
+        part_002.wav
+        chapter.wav
+      ...
     melo_manifest.csv
     google_tts_manifest.csv
+    azure_tts_manifest.csv
+    azure_tts_progress.csv
     tts_manifest.csv
     merged.txt
     index.csv
