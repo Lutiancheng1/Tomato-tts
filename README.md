@@ -17,6 +17,14 @@
   - 输出每个分块的 wav
   - 自动拼接为每章一个 `chapter.wav`
   - 输出音频清单 `melo_manifest.csv`
+- `scripts/google_tts_from_chunks.py`
+  - 读取 `tts_chunks` 并调用 Google Cloud Text-to-Speech 批量合成
+  - 支持 `client`（ADC/服务账号）和 `rest`（API Key）两种调用方式
+  - 可输出 `LINEAR16/MP3/OGG_OPUS`，其中 `LINEAR16` 会自动拼接 `chapter.wav`
+  - 输出音频清单 `google_tts_manifest.csv`
+- `scripts/google_tts_voice_previews.py`
+  - 批量拉取中文相关音色（`cmn-/yue-/zh-`）并生成试听 MP3
+  - 输出 `manifest.csv`，便于按音色名筛选
 
 ## 用法
 
@@ -173,6 +181,141 @@ ffmpeg -y -i "wodebooks_output\book_94814546_full_20260304\melo_wav_ch1\001_第1
 
 若你要优先用显卡，把 `--device cpu` 改为 `--device cuda`。
 
+## Google Cloud TTS（API）
+
+已新增脚本：`scripts/google_tts_from_chunks.py`
+
+- 输入：`tts_chunks/<章节>/part_*.txt`
+- 输出：`google_tts_audio/<章节>/part_*.wav|mp3|ogg`（`LINEAR16` 还会生成 `chapter.wav`）
+- 清单：`google_tts_manifest.csv`
+
+### 1) 开通与认证（推荐用服务账号 / ADC）
+
+> 说明：你说的 Google Pro 会员通常不等于 Google Cloud 的 API 计费。  
+> Text-to-Speech API 走 Google Cloud 项目计费和额度，需要在 Cloud 项目里单独启用 API 与 billing。
+
+安装 Cloud SDK（若未安装）：
+
+```powershell
+winget install --id Google.CloudSDK -e
+```
+
+初始化并选择项目：
+
+```powershell
+gcloud init
+gcloud config set project <YOUR_PROJECT_ID>
+gcloud services enable texttospeech.googleapis.com
+```
+
+本机开发（ADC）：
+
+```powershell
+gcloud auth application-default login
+```
+
+或使用服务账号 key（更适合脚本批处理）：
+
+```powershell
+gcloud iam service-accounts create tomato-tts --display-name "Tomato TTS"
+gcloud projects add-iam-policy-binding <YOUR_PROJECT_ID> `
+  --member="serviceAccount:tomato-tts@<YOUR_PROJECT_ID>.iam.gserviceaccount.com" `
+  --role="roles/editor"
+gcloud iam service-accounts keys create .\\google-credentials\\tomato-tts.sa-key.json `
+  --iam-account="tomato-tts@<YOUR_PROJECT_ID>.iam.gserviceaccount.com"
+
+$env:GOOGLE_APPLICATION_CREDENTIALS = "E:\\coding\\Tomato-tts\\google-credentials\\tomato-tts.sa-key.json"
+```
+
+### 2) 安装 Python 依赖
+
+```powershell
+py -3.10 -m venv .venv_google310
+.\.venv_google310\Scripts\python -m pip install -U pip
+.\.venv_google310\Scripts\python -m pip install google-cloud-texttospeech
+```
+
+### 3) 先列出可用音色
+
+```powershell
+.\.venv_google310\Scripts\python scripts/google_tts_from_chunks.py `
+  --backend client `
+  --language-code cmn-CN `
+  --list-voices
+```
+
+### 4) 小范围试跑（第 1 章前 2 段）
+
+```powershell
+.\.venv_google310\Scripts\python scripts/google_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --start 1 --end 1 --max-parts 2 `
+  --output-root wodebooks_output/book_94814546_full_20260304/google_tts_audio_test `
+  --manifest-file wodebooks_output/book_94814546_full_20260304/google_tts_manifest_test.csv `
+  --backend client `
+  --language-code cmn-CN `
+  --voice-name cmn-CN-Wavenet-A `
+  --audio-encoding LINEAR16 `
+  --speaking-rate 1.0 --pitch 0 --volume-gain-db 0 `
+  --delay 0.05
+```
+
+全量跑全部章节（保持 `LINEAR16` 方便自动拼接每章 `chapter.wav`）：
+
+```powershell
+.\.venv_google310\Scripts\python scripts/google_tts_from_chunks.py `
+  --book-dir wodebooks_output/book_94814546_full_20260304 `
+  --output-root wodebooks_output/book_94814546_full_20260304/google_tts_audio `
+  --manifest-file wodebooks_output/book_94814546_full_20260304/google_tts_manifest.csv `
+  --backend client `
+  --language-code cmn-CN `
+  --voice-name cmn-CN-Wavenet-A `
+  --audio-encoding LINEAR16 `
+  --speaking-rate 1.0 --pitch 0 --volume-gain-db 0
+```
+
+### 5) API Key + CLI（一次性测试）
+
+如果你想先用 API Key 直接打 REST 接口，先在 Google Cloud 控制台创建 key，然后：
+
+```powershell
+$env:GOOGLE_TTS_API_KEY="<YOUR_API_KEY>"
+```
+
+请求并落地 MP3：
+
+```powershell
+$req = @'
+{
+  "input": {"text": "你好，这是 Google Cloud TTS 的测试。"},
+  "voice": {"languageCode": "cmn-CN", "name": "cmn-CN-Wavenet-A"},
+  "audioConfig": {"audioEncoding": "MP3"}
+}
+'@
+
+$resp = Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://texttospeech.googleapis.com/v1/text:synthesize?key=$env:GOOGLE_TTS_API_KEY" `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $req
+
+[IO.File]::WriteAllBytes("google_tts_test.mp3", [Convert]::FromBase64String($resp.audioContent))
+```
+
+如果你要在批量脚本里走 API Key，也可以改用 `--backend rest --api-key ...`。
+
+### 6) 批量生成中文音色试听（MP3）
+
+```powershell
+.\.venv_google310\Scripts\python scripts/google_tts_voice_previews.py `
+  --output-dir wodebooks_output/google_tts_voice_previews_20260304_fixed
+```
+
+输出：
+
+- `wodebooks_output/google_tts_voice_previews_20260304_fixed/*.mp3`
+- `wodebooks_output/google_tts_voice_previews_20260304_fixed/manifest.csv`
+
 ## 下载免费音色到本地（Piper）
 
 已新增脚本：`scripts/download_piper_voices.py`
@@ -242,7 +385,14 @@ wodebooks_output/
         part_002.wav
         chapter.wav
       ...
+    google_tts_audio/
+      001_章节名/
+        part_001.wav
+        part_002.wav
+        chapter.wav
+      ...
     melo_manifest.csv
+    google_tts_manifest.csv
     tts_manifest.csv
     merged.txt
     index.csv
