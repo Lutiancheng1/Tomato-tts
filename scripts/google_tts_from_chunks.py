@@ -48,6 +48,11 @@ GENDER_NAMES = {
     "NEUTRAL",
 }
 
+DEFAULT_CHIRP3_VOICE_BY_LANG = {
+    "cmn-CN": "cmn-CN-Chirp3-HD-Achernar",
+    "yue-HK": "yue-HK-Chirp3-HD-Achernar",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -99,7 +104,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--voice-name",
         default="",
-        help="Optional exact voice name, e.g. cmn-CN-Wavenet-A.",
+        help=(
+            "Optional exact voice name, e.g. cmn-CN-Chirp3-HD-Achernar. "
+            "If empty and language is supported, script prefers Chirp 3: HD."
+        ),
     )
     parser.add_argument(
         "--ssml-gender",
@@ -256,6 +264,10 @@ def build_voice_object(language_code: str, voice_name: str, ssml_gender: str) ->
         voice["name"] = voice_name
     voice["ssmlGender"] = ssml_gender
     return voice
+
+
+def default_voice_name(language_code: str) -> str:
+    return DEFAULT_CHIRP3_VOICE_BY_LANG.get(language_code, "")
 
 
 def build_audio_config(args: argparse.Namespace) -> dict[str, float | int | str]:
@@ -445,7 +457,8 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     manifest_file.parent.mkdir(parents=True, exist_ok=True)
 
-    voice = build_voice_object(args.language_code, args.voice_name, args.ssml_gender)
+    selected_voice_name = args.voice_name.strip() or default_voice_name(args.language_code)
+    voice = build_voice_object(args.language_code, selected_voice_name, args.ssml_gender)
     audio_cfg = build_audio_config(args)
 
     if args.list_voices:
@@ -454,6 +467,9 @@ def main() -> None:
         else:
             client_list_voices(args.language_code)
         return
+
+    if selected_voice_name:
+        print(f"Voice         : {selected_voice_name}")
 
     if backend == "rest":
         synthesize_fn = lambda text: synthesize_rest(text, api_key, voice, audio_cfg, args.timeout)
@@ -535,7 +551,7 @@ def main() -> None:
                 "parts": str(len(produced_parts)),
                 "chars": str(chapter_chars),
                 "backend": backend,
-                "voice_name": args.voice_name,
+                "voice_name": selected_voice_name,
                 "language_code": args.language_code,
                 "audio_encoding": args.audio_encoding,
                 "chapter_audio_seconds": chapter_audio_seconds,

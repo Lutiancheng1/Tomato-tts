@@ -13,6 +13,13 @@ import csv
 import re
 from pathlib import Path
 
+GENDER_MAP = {
+    "SSML_VOICE_GENDER_UNSPECIFIED": "U",
+    "MALE": "M",
+    "FEMALE": "F",
+    "NEUTRAL": "N",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -27,6 +34,12 @@ def parse_args() -> argparse.Namespace:
         "--language-prefixes",
         default="cmn-,yue-,zh-",
         help="Comma-separated language code prefixes to include.",
+    )
+    parser.add_argument(
+        "--voice-family",
+        choices=["all", "chirp3-hd", "wavenet", "standard"],
+        default="chirp3-hd",
+        help="Filter family. Default chirp3-hd.",
     )
     parser.add_argument(
         "--speaking-rate",
@@ -51,6 +64,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Limit number of voices for quick tests. 0 means all.",
+    )
+    parser.add_argument(
+        "--clean-output",
+        action="store_true",
+        help="Remove old mp3/csv files under output dir before generating.",
     )
     return parser.parse_args()
 
@@ -78,12 +96,40 @@ def safe_file_stem(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", name)
 
 
+def match_voice_family(voice_name: str, voice_family: str) -> bool:
+    if voice_family == "all":
+        return True
+    if voice_family == "chirp3-hd":
+        return "Chirp3-HD" in voice_name
+    if voice_family == "wavenet":
+        return "-Wavenet-" in voice_name
+    if voice_family == "standard":
+        return "-Standard-" in voice_name
+    return True
+
+
+def normalize_gender_enum(voice_gender: object) -> str:
+    raw = str(voice_gender)
+    if raw.startswith("SsmlVoiceGender."):
+        raw = raw.split(".", 1)[1]
+    return raw
+
+
+def clean_output_dir(out_dir: Path) -> None:
+    for path in out_dir.glob("*.mp3"):
+        path.unlink(missing_ok=True)
+    for name in ["manifest.csv", "manifest_with_gender.csv", "male_only.csv", "female_only.csv"]:
+        (out_dir / name).unlink(missing_ok=True)
+
+
 def main() -> None:
     args = parse_args()
     from google.cloud import texttospeech
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.clean_output:
+        clean_output_dir(out_dir)
 
     prefixes = tuple(
         p.strip() for p in args.language_prefixes.split(",") if p.strip()
@@ -95,6 +141,7 @@ def main() -> None:
         v
         for v in all_voices
         if any(code.startswith(prefixes) for code in v.language_codes)
+        and match_voice_family(v.name, args.voice_family)
     ]
     voices.sort(key=lambda v: v.name)
     if args.limit > 0:
@@ -103,11 +150,14 @@ def main() -> None:
     if not voices:
         raise RuntimeError("No voices matched the given language prefixes.")
 
-    rows: list[dict[str, str]] = []
+    rows_basic: list[dict[str, str]] = []
+    rows_with_gender: list[dict[str, str]] = []
     for i, voice in enumerate(voices, start=1):
         lang = voice.language_codes[0] if voice.language_codes else "cmn-CN"
         text = select_preview_text(lang)
-        out_name = f"{i:03d}_{safe_file_stem(voice.name)}.mp3"
+        raw_gender = normalize_gender_enum(voice.ssml_gender)
+        tag = GENDER_MAP.get(raw_gender, "U")
+        out_name = f"{i:03d}_{tag}_{safe_file_stem(voice.name)}.mp3"
         out_file = out_dir / out_name
 
         resp = client.synthesize_speech(
@@ -129,13 +179,24 @@ def main() -> None:
         )
         out_file.write_bytes(resp.audio_content)
 
-        rows.append(
+        rows_basic.append(
             {
                 "index": str(i),
                 "voice_name": voice.name,
                 "language_code": lang,
                 "sample_rate_hz": str(voice.natural_sample_rate_hertz),
                 "preview_file": out_name,
+            }
+        )
+        rows_with_gender.append(
+            {
+                "index": str(i),
+                "voice_name": voice.name,
+                "language_code": lang,
+                "gender": raw_gender,
+                "sample_rate_hz": str(voice.natural_sample_rate_hertz),
+                "preview_file": out_name,
+                "exists": "True",
             }
         )
         print(f"[{i}/{len(voices)}] {voice.name}")
@@ -153,12 +214,48 @@ def main() -> None:
             ],
         )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(rows_basic)
+
+    manifest_with_gender = out_dir / "manifest_with_gender.csv"
+    with manifest_with_gender.open("w", encoding="utf-8-sig", newline="") as fp:
+        writer = csv.DictWriter(
+            fp,
+            fieldnames=[
+                "index",
+                "voice_name",
+                "language_code",
+                "gender",
+                "sample_rate_hz",
+                "preview_file",
+                "exists",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows_with_gender)
+
+    for file_name, gender_name in [("male_only.csv", "MALE"), ("female_only.csv", "FEMALE")]:
+        out_path = out_dir / file_name
+        subset = [row for row in rows_with_gender if row["gender"] == gender_name]
+        with out_path.open("w", encoding="utf-8-sig", newline="") as fp:
+            writer = csv.DictWriter(
+                fp,
+                fieldnames=[
+                    "index",
+                    "voice_name",
+                    "language_code",
+                    "gender",
+                    "sample_rate_hz",
+                    "preview_file",
+                    "exists",
+                ],
+            )
+            writer.writeheader()
+            writer.writerows(subset)
 
     print("\nDone.")
     print(f"Output dir : {out_dir.resolve()}")
     print(f"Manifest   : {manifest.resolve()}")
-    print(f"Voices     : {len(rows)}")
+    print(f"Voices     : {len(rows_basic)}")
 
 
 if __name__ == "__main__":
