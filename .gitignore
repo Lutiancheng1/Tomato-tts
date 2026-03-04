@@ -1,3 +1,29 @@
 .DS_Store
 __pycache__/
 ocr_tmp/
+
+# Python env / cache
+.venv/
+.venv*/
+.pytest_cache/
+.mypy_cache/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Generated data and media
+wodebooks_output/
+*.wav
+*.mp3
+*.flac
+
+# Large model/cache directories
+.cache/
+huggingface/
+third_party/
+
+# Local downloaded TTS voice assets
+voice_assets/piper/voices/
+voice_assets/piper/download_manifest.csv
