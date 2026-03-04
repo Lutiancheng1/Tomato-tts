@@ -14,10 +14,13 @@ ocr_tmp/
 .vscode/
 
 # Generated data and media
-wodebooks_output/
+wodebooks_output/*
+!wodebooks_output/google_tts_voice_previews_20260304_fixed/
+!wodebooks_output/google_tts_voice_previews_20260304_fixed/**
 *.wav
 *.mp3
 *.flac
+!wodebooks_output/google_tts_voice_previews_20260304_fixed/*.mp3
 
 # Large model/cache directories
 .cache/
