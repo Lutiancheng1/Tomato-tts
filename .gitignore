@@ -30,12 +30,12 @@ wodebooks_output/book_94814546_full_20260304/*
 *.mp3
 *.flac
 !wodebooks_output/google_tts_voice_previews_20260304_fixed/*.mp3
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/*.wav
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/*.mp3
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/*.ogg
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/*.wav
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/*.mp3
-!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/*.ogg
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/chapter.wav
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/chapter.mp3
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio/**/chapter.ogg
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/chapter.wav
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/chapter.mp3
+!wodebooks_output/book_94814546_full_20260304/azure_tts_audio_test/**/chapter.ogg
 
 # Large model/cache directories
 .cache/

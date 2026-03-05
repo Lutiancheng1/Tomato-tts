@@ -26,6 +26,7 @@ import csv
 import json
 import os
 import re
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -227,6 +228,11 @@ def parse_args() -> argparse.Namespace:
         "--list-voices",
         action="store_true",
         help="List voices for --locale and exit.",
+    )
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="Disable TLS certificate verification (for local trusted network debugging only).",
     )
     return parser.parse_args()
 
@@ -463,8 +469,11 @@ def synthesize_rest(
         headers=headers,
         method="POST",
     )
+    context = None
+    if args.insecure:
+        context = ssl._create_unverified_context()
     try:
-        with urllib.request.urlopen(req, timeout=args.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=args.timeout, context=context) as resp:
             return resp.read()
     except urllib.error.HTTPError as ex:
         detail = read_http_error(ex)

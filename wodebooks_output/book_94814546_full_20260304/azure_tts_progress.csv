@@ -1,14 +1,14 @@
 ﻿index,chapter_dir,status,expected_parts,generated_parts,chapter_wav_exists,voice_name,output_format,updated_at_utc
-1,001_第1章 舔狗三年半，它竟说我攻略错对象！,DONE,8,8,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-04T17:38:47Z
-2,002_第2章 她喜欢这个新对象,TODO,9,0,False,,,
-3,003_第3章 欲擒故纵的小把戏你已经玩过了,TODO,10,0,False,,,
-4,004_第4章 谢遇安还真是个言出必行的真君子,TODO,8,0,False,,,
-5,005_第5章 谁稀罕当你的跑腿丫环,TODO,9,0,False,,,
-6,006_第6章 陆世子，你弄疼她了,TODO,8,0,False,,,
-7,007_第7章 看到了，确实很美,TODO,9,0,False,,,
-8,008_第8章 狗男人终于做了一件好事,TODO,9,0,False,,,
-9,009_第9章 妹妹，不然你还是换个人追吧？,TODO,8,0,False,,,
-10,010_第10章 完了，这下真的玩完了,TODO,10,0,False,,,
+1,001_第1章 舔狗三年半，它竟说我攻略错对象！,DONE,8,8,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+2,002_第2章 她喜欢这个新对象,DONE,9,9,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+3,003_第3章 欲擒故纵的小把戏你已经玩过了,DONE,10,10,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+4,004_第4章 谢遇安还真是个言出必行的真君子,DONE,8,8,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+5,005_第5章 谁稀罕当你的跑腿丫环,DONE,9,9,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+6,006_第6章 陆世子，你弄疼她了,DONE,8,8,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+7,007_第7章 看到了，确实很美,DONE,9,9,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+8,008_第8章 狗男人终于做了一件好事,DONE,9,9,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+9,009_第9章 妹妹，不然你还是换个人追吧？,DONE,8,8,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
+10,010_第10章 完了，这下真的玩完了,DONE,10,10,True,zh-CN-XiaochenNeural,riff-24khz-16bit-mono-pcm,2026-03-05T03:34:12Z
 11,011_第11章 谢遇安生气了！,TODO,8,0,False,,,
 12,012_第12章 怪我太优秀，我活该淋一天雨？,TODO,9,0,False,,,
 13,013_第13章 第一次唤她的名字,TODO,9,0,False,,,
